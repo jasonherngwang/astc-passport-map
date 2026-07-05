@@ -1,0 +1,15 @@
+# dependencies & build output
+node_modules/
+dist/
+.wrangler/
+
+# source participant PDFs (ASTC-published; regenerate data/ locally, don't redistribute)
+assets/*.pdf
+
+# local agent/editor tooling
+.claude/
+.agents/
+skills-lock.json
+
+# OS cruft
+.DS_Store
