@@ -10,7 +10,7 @@ If you are a certain level of membership at a museum in the [ASTC Travel Passpor
 
 Imagine two circles with radius 90 miles. Everything around that would be eligible.
 
-![ASTC Passport Map](./astc_passport_map.png)
+![ASTC Passport Map](./astc_passport_map.webp)
 
 Eligible membership levels are typically but not always group/family memberships, though some individual memberships qualify. There is also a minimum membership cost requirement. See the [FAQ](https://www.astc.org/membership/find-an-astc-member/passport-faq/) for more details.
 
