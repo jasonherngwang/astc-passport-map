@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import {
   MapContainer,
   TileLayer,
@@ -11,7 +11,13 @@ import {
   useMapEvents,
 } from 'react-leaflet'
 import L from 'leaflet'
-import type { LatLng, LatLngTuple, PathOptions, PointExpression } from 'leaflet'
+import type {
+  LatLng,
+  LatLngTuple,
+  Marker as LeafletMarker,
+  PathOptions,
+  PointExpression,
+} from 'leaflet'
 import { museums, RADIUS_METERS, RADIUS_MILES } from './geo'
 import { StarIcon, CheckIcon, CloseIcon, IdCardIcon } from './icons'
 import type { Home, LatLon, Museum, MuseumStatus, Status, StatusMap } from './types'
@@ -27,7 +33,7 @@ const PAPER = '#faf5ea'
 
 const MAP_CENTER: LatLngTuple = [39.5, -96]
 const DOT_TIP_OFFSET: PointExpression = [0, -6]
-const PIN_TIP_OFFSET: PointExpression = [0, -32]
+const PIN_TIP_OFFSET: PointExpression = [0, -20]
 
 const toLatLng = (p: LatLon): LatLngTuple => [p.lat, p.lon]
 
@@ -47,14 +53,15 @@ const homeIcon = L.divIcon({
   className: 'pin-badge pin-home',
   html: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M4.5 11.2L12 5l7.5 6.2M6.5 10.4V18.6h11v-8.2" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
   iconSize: [32, 32],
-  iconAnchor: [16, 30],
+  iconAnchor: [16, 16],
 })
 
 const memberIcon = L.divIcon({
   className: 'pin-badge pin-member',
   html: '<svg width="15" height="15" viewBox="0 0 24 24"><path d="M12 3.3l2.6 5.2 5.8.85-4.2 4.1 1 5.75L12 16.5l-5.2 2.7 1-5.75-4.2-4.1 5.8-.85z" fill="#fff" stroke="#fff" stroke-width="1.4" stroke-linejoin="round"/></svg>',
   iconSize: [32, 32],
-  iconAnchor: [16, 30],
+  iconAnchor: [16, 16],
+  popupAnchor: [0, -14],
 })
 
 function ClickCatcher({ onMapClick }: { onMapClick: (latlng: LatLng) => void }) {
@@ -181,6 +188,17 @@ export default function MapView({
     [statusById]
   )
 
+  // Picking a museum (from the list, search, or map) focuses it: opening its
+  // popup pans it into view and closes any popup left open on another marker,
+  // since Leaflet keeps only one popup open at a time. Defer to the next frame
+  // so react-leaflet has finished binding the popup to a freshly-mounted marker.
+  const memberMarkerRef = useRef<LeafletMarker>(null)
+  useEffect(() => {
+    if (!member) return
+    const raf = requestAnimationFrame(() => memberMarkerRef.current?.openPopup())
+    return () => cancelAnimationFrame(raf)
+  }, [member?.id])
+
   return (
     <>
       <MapContainer
@@ -245,7 +263,7 @@ export default function MapView({
         )}
 
         {member && (
-          <Marker position={toLatLng(member)} icon={memberIcon}>
+          <Marker ref={memberMarkerRef} position={toLatLng(member)} icon={memberIcon}>
             <Tooltip direction="top" offset={PIN_TIP_OFFSET}>
               {member.name} (your museum)
             </Tooltip>

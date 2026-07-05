@@ -386,6 +386,9 @@ interface RecommendationsProps {
 function Recommendations({ recommendations, member, setMemberId, home }: RecommendationsProps) {
   if (recommendations.length === 0) return null
   const best = recommendations[0]?.unlocked ?? 0
+  // Only crown a "Top pick" when one museum strictly leads — a tie has no winner.
+  const uniqueTop =
+    recommendations.length === 1 || recommendations[0].unlocked > recommendations[1].unlocked
   return (
     <section className="panel-section">
       <div className="step-head">
@@ -405,7 +408,7 @@ function Recommendations({ recommendations, member, setMemberId, home }: Recomme
               <span className="rank" aria-hidden="true">{i + 1}</span>
               <span className="reco-name">
                 {museum.name}
-                {i === 0 && <span className="top-tag">Top pick</span>}
+                {i === 0 && uniqueTop && <span className="top-tag">Top pick</span>}
                 <span className="reco-sub">{Math.round(dHome)} mi from home</span>
               </span>
               <span className={`reco-count ${unlocked === best ? 'reco-best' : ''}`}>
@@ -463,7 +466,6 @@ function Results({ home, member, statusById }: ResultsProps) {
             <br />
             free to visit
           </span>
-          <span className="stamp-date">May – Oct 2026</span>
         </div>
         <div className="stamp stamp-muted" key={`close-${excludedTotal}`}>
           <StampNumber value={excludedTotal} />
@@ -570,7 +572,7 @@ export default function Panel({
           </button>
         </div>
         <p className="tagline">
-          Join one science museum, visit hundreds more free — anywhere{' '}
+          Join one science museum, visit hundreds more free, anywhere{' '}
           {RADIUS_MILES}+ miles from home <em>and</em> from your museum.
         </p>
       </header>
@@ -593,15 +595,7 @@ export default function Panel({
               home={home}
             />
             <footer className="panel-footer">
-              <p>
-                Data: ASTC Travel Passport participant list (May–Oct 2026). Always
-                call the museum before you visit — benefits vary.
-              </p>
-              <p className="mrz" aria-hidden="true">
-                {'P<ASTC<TRAVEL<PASSPORT<<MAY<OCT<2026<<<<<<<<'}
-                <br />
-                {'CALL<AHEAD<<BENEFITS<VARY<BY<MUSEUM<<<<<<<<<'}
-              </p>
+              <p>Data: ASTC Travel Passport participant list (May–Oct 2026).</p>
             </footer>
           </div>
         </div>

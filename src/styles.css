@@ -232,7 +232,7 @@ body {
 }
 
 .panel-section {
-  padding: 15px 0;
+  padding: 20px 0;
   border-bottom: 1px solid var(--paper-line);
 }
 
@@ -244,7 +244,7 @@ body {
   display: flex;
   align-items: center;
   gap: 10px;
-  margin: 0 0 11px;
+  margin: 0 0 14px;
 }
 
 .step-head h2,
@@ -517,34 +517,45 @@ input[type='text']:focus {
   display: flex;
   align-items: center;
   gap: 10px;
-  margin-bottom: 12px;
+  margin-bottom: 16px;
 }
 
 .stamp-row {
   display: flex;
-  gap: 14px;
+  gap: 16px;
   justify-content: center;
-  margin-bottom: 12px;
+  margin: 8px 0 22px;
 }
 
 .stamp {
   --r: -3deg;
+  --tint: var(--positive-tint);
+  position: relative;
   width: 138px;
-  padding: 13px 8px 12px;
+  padding: 16px 10px 15px;
   text-align: center;
   color: var(--positive-ink);
-  background: var(--positive-tint);
-  border: 3px dashed currentColor;
   border-radius: 50% 46% 48% 52% / 52% 48% 50% 46%;
   transform: rotate(var(--r));
-  filter: url(#inkedge);
   animation: stamp-in 420ms var(--ease-stamp) both;
+}
+
+/* the hand-stamped rough edge lives on the border layer only, so text stays crisp */
+.stamp::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border: 3px dashed currentColor;
+  border-radius: inherit;
+  background: var(--tint);
+  filter: url(#inkedge);
 }
 
 .stamp-muted {
   --r: 2.5deg;
+  --tint: var(--excluded-tint);
   color: var(--excluded-ink);
-  background: var(--excluded-tint);
   animation-delay: 140ms;
 }
 
@@ -771,20 +782,6 @@ input[type='text']:focus {
   margin: 0;
 }
 
-.mrz {
-  margin-top: 9px;
-  padding: 7px 10px;
-  background: var(--paper-deep);
-  border-radius: 8px;
-  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
-  font-size: 0.6rem;
-  line-height: 1.65;
-  letter-spacing: 0.55px;
-  color: #82765a;
-  white-space: nowrap;
-  overflow: hidden;
-}
-
 /* ---------- map extras ---------- */
 
 .pin-badge {
@@ -794,19 +791,6 @@ input[type='text']:focus {
   border-radius: 50%;
   border: 2px solid #fff;
   box-shadow: 0 3px 9px rgba(0, 0, 0, 0.28);
-}
-
-.pin-badge::after {
-  content: '';
-  position: absolute;
-  z-index: -1;
-  bottom: -4px;
-  left: 50%;
-  width: 9px;
-  height: 9px;
-  border-radius: 1.5px;
-  background: inherit;
-  transform: translateX(-50%) rotate(45deg);
 }
 
 .pin-home {
@@ -925,11 +909,11 @@ input[type='text']:focus {
 
 /* status inked on like a border stamp */
 .flag {
+  position: relative;
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 5px 10px;
-  border: 2px solid currentColor;
+  padding: 6px 11px;
   border-radius: 8px;
   font-size: 0.7rem;
   font-weight: 800;
@@ -937,22 +921,33 @@ input[type='text']:focus {
   text-transform: uppercase;
   transform: rotate(-2deg);
   margin: 3px 0 10px 2px;
+}
+
+/* rough edge on the border layer only — keeps the label text crisp */
+.flag::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border: 2px solid currentColor;
+  border-radius: inherit;
+  background: var(--flag-tint);
   filter: url(#inkedge);
 }
 
 .flag-free {
   color: var(--positive-ink);
-  background: var(--positive-tint);
+  --flag-tint: var(--positive-tint);
 }
 
 .flag-close {
   color: var(--excluded-ink);
-  background: var(--excluded-tint);
+  --flag-tint: var(--excluded-tint);
 }
 
 .flag-member {
   color: #a06b00;
-  background: rgba(244, 166, 8, 0.08);
+  --flag-tint: rgba(244, 166, 8, 0.08);
 }
 
 .flag-detail {
