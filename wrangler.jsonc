@@ -1,0 +1,15 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "astc-passport-map",
+  "compatibility_date": "2026-04-21",
+  "account_id": "72474fb45377eb9816cedc9094f4602e",
+  // Static-only Worker: no server code, just the Vite build output in ./dist.
+  // SPA fallback serves index.html for any unmatched path.
+  "assets": {
+    "directory": "./dist",
+    "not_found_handling": "single-page-application"
+  },
+  "observability": {
+    "enabled": true
+  }
+}
