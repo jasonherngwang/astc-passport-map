@@ -19,3 +19,16 @@ To me it makes the most sense to become a member of a museum that is:
 - Close to home, so the two circles are close together, to maximize the number of museums outside the ineligible area
 
 For example, I live in Los Angeles, and will likely get a Kidspace Family membership, meaning the San Diego NHM would be eligible (111 mi away), as well as the Maui Ocean Center.
+
+## Address search
+
+Address search uses Google Places Autocomplete when a Maps API key is provided, which is much faster and more accurate than the free geocoders. Set it at build time:
+
+```sh
+echo 'VITE_GOOGLE_MAPS_API_KEY=your-key' > .env.local
+npm run dev     # or npm run deploy
+```
+
+The key ships in the client bundle (that's how the Maps JS API works), so in the Google Cloud console restrict it to your site's HTTP referrers and to the **Places API (New)** only. Autocomplete uses [session tokens](https://developers.google.com/maps/documentation/places/web-service/session-tokens), so each completed search bills as one session rather than per keystroke.
+
+Without a key, search falls back to the free, keyless OpenStreetMap geocoders (Photon for typeahead, Nominatim for full addresses).

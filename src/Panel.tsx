@@ -3,123 +3,8 @@ import type { Dispatch, SetStateAction } from 'react'
 import Fuse from 'fuse.js'
 import { museums, RADIUS_MILES } from './geo'
 import { TicketIcon, HouseIcon, StarIcon, CloseIcon, ChevronIcon } from './icons'
-import type { DescribedPlace, GeoResult, Home, Museum, Recommendation, StatusMap } from './types'
-
-// Two free, keyless OpenStreetMap geocoders used together:
-// - Photon (Komoot) is built for fast as-you-type search — great for cities and
-//   streets, low latency, autocomplete-friendly.
-// - Nominatim parses full messy address strings far better (and tolerates a
-//   wrong ZIP), but its policy discourages per-keystroke use. So we only call it
-//   as a fallback when Photon finds nothing for a settled query.
-const PHOTON = 'https://photon.komoot.io/api/'
-const NOMINATIM = 'https://nominatim.openstreetmap.org/search'
-
-// Loose shape shared by Photon feature properties and our Nominatim adapter.
-interface AddressProps {
-  name?: string
-  housenumber?: string
-  street?: string
-  city?: string
-  county?: string
-  state?: string
-  countrycode?: string
-}
-
-interface PhotonFeature {
-  geometry: { coordinates: [number, number] }
-  properties: AddressProps
-}
-
-interface PhotonResponse {
-  features?: PhotonFeature[]
-}
-
-interface NominatimAddress {
-  house_number?: string
-  road?: string
-  city?: string
-  town?: string
-  village?: string
-  hamlet?: string
-  suburb?: string
-  county?: string
-  state?: string
-  country_code?: string
-}
-
-interface NominatimItem {
-  lat: string
-  lon: string
-  name?: string
-  address?: NominatimAddress
-}
-
-// Turn a Photon GeoJSON feature into a display record that always leads with
-// the street address. OSM often attaches an address to a named building (e.g.
-// "Chase Plaza" instead of a bare "[example street address]"), so we surface the street
-// first and demote any building/business name to a muted hint.
-function describe(props: AddressProps): DescribedPlace {
-  const cc = props.countrycode?.toUpperCase()
-  const locality = [props.city || props.county, props.state].filter(Boolean).join(', ')
-  const streetLine =
-    props.housenumber && props.street
-      ? `${props.housenumber} ${props.street}`
-      : props.street
-  const primary = streetLine || props.name || locality || cc || 'Unknown place'
-
-  const context: string[] = []
-  if ((streetLine || props.name) && locality && locality !== primary)
-    context.push(locality)
-  if (cc) context.push(cc)
-  const hint =
-    streetLine && props.name && props.name !== props.street ? props.name : null
-  const secondary = [context.join(', '), hint].filter(Boolean).join(' · ')
-  const label = [primary, locality !== primary ? locality : null]
-    .filter(Boolean)
-    .join(', ')
-  return { primary, secondary, label }
-}
-
-// Normalize a Nominatim result into the same shape describe() expects.
-function fromNominatim(item: NominatimItem): GeoResult {
-  const a = item.address || {}
-  return {
-    lat: parseFloat(item.lat),
-    lon: parseFloat(item.lon),
-    ...describe({
-      name: item.name || undefined,
-      housenumber: a.house_number,
-      street: a.road,
-      city: a.city || a.town || a.village || a.hamlet || a.suburb,
-      county: a.county,
-      state: a.state,
-      countrycode: a.country_code,
-    }),
-  }
-}
-
-async function fetchPhoton(q: string, signal: AbortSignal): Promise<GeoResult[]> {
-  const params = new URLSearchParams({ q, limit: '6', lang: 'en' })
-  const resp = await fetch(`${PHOTON}?${params}`, { signal })
-  const data = (await resp.json()) as PhotonResponse
-  return (data.features || []).map((f) => ({
-    lat: f.geometry.coordinates[1],
-    lon: f.geometry.coordinates[0],
-    ...describe(f.properties),
-  }))
-}
-
-async function fetchNominatim(q: string, signal: AbortSignal): Promise<GeoResult[]> {
-  const params = new URLSearchParams({
-    q,
-    format: 'json',
-    addressdetails: '1',
-    limit: '6',
-  })
-  const resp = await fetch(`${NOMINATIM}?${params}`, { signal })
-  const data = (await resp.json()) as NominatimItem[]
-  return data.map(fromNominatim)
-}
+import { searchPlaces, type PlaceHit } from './placeSearch'
+import type { Home, Museum, Recommendation, StatusMap } from './types'
 
 function useFuse(): Fuse<Museum> {
   return useMemo(
@@ -193,13 +78,15 @@ interface AddressSearchProps {
 
 function AddressSearch({ home, setHome, pickingHome, setPickingHome }: AddressSearchProps) {
   const [query, setQuery] = useState('')
-  const [results, setResults] = useState<GeoResult[] | null>(null)
+  const [results, setResults] = useState<PlaceHit[] | null>(null)
   const [busy, setBusy] = useState(false)
   const abortRef = useRef<AbortController | null>(null)
   const justPickedRef = useRef(false)
 
   // Debounced typeahead: fire ~280ms after the user stops typing, aborting any
-  // in-flight request so only the latest query resolves.
+  // in-flight request so only the latest query resolves. (Google requests
+  // can't be cancelled mid-flight, but a stale response still lands with its
+  // signal already aborted, so it's discarded the same way.)
   useEffect(() => {
     const q = query.trim()
     if (justPickedRef.current) {
@@ -217,28 +104,13 @@ function AddressSearch({ home, setHome, pickingHome, setPickingHome }: AddressSe
     abortRef.current?.abort()
     abortRef.current = ctrl
     const timer = setTimeout(async () => {
-      // A query that starts with a house number is an address lookup — send it
-      // to Nominatim first (it parses full addresses and tolerates a bad ZIP).
-      // A bare place/street name is typeahead — Photon is faster there. Either
-      // way, fall back to the other engine if the first finds nothing.
-      const houseNum = q.match(/^\s*(\d+)\b/)?.[1]
-      const [primary, fallback] = houseNum
-        ? [fetchNominatim, fetchPhoton]
-        : [fetchPhoton, fetchNominatim]
       try {
-        let items = await primary(q, ctrl.signal)
-        if (items.length === 0) items = await fallback(q, ctrl.signal)
-        // For an address, drop results that don't actually start with the typed
-        // house number — that's what removes the fuzzy same-street-name noise.
-        if (houseNum)
-          items = items.filter((it) => it.primary.startsWith(houseNum + ' '))
-        const seen = new Set<string>()
-        items = items.filter(
-          (it) => it.primary && !seen.has(it.label) && seen.add(it.label)
-        )
-        setResults(items)
+        const items = await searchPlaces(q, ctrl.signal)
+        if (!ctrl.signal.aborted) setResults(items)
       } catch (e) {
-        if (!(e instanceof DOMException) || e.name !== 'AbortError') setResults([])
+        if (!(e instanceof DOMException) || e.name !== 'AbortError') {
+          if (!ctrl.signal.aborted) setResults([])
+        }
       } finally {
         if (!ctrl.signal.aborted) setBusy(false)
       }
@@ -246,11 +118,21 @@ function AddressSearch({ home, setHome, pickingHome, setPickingHome }: AddressSe
     return () => clearTimeout(timer)
   }, [query])
 
-  function choose(item: GeoResult) {
-    justPickedRef.current = true
-    setHome(item)
-    setResults(null)
-    setQuery('')
+  async function choose(item: PlaceHit) {
+    // Coordinates may need a follow-up fetch (Google place details), so keep
+    // the spinner up until they land. Failures leave the list open to retry.
+    setBusy(true)
+    try {
+      const { lat, lon } = await item.resolve()
+      justPickedRef.current = true
+      setHome({ lat, lon, label: item.label })
+      setResults(null)
+      setQuery('')
+    } catch (e) {
+      console.error('Failed to resolve place', e)
+    } finally {
+      setBusy(false)
+    }
   }
 
   return (

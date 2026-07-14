@@ -3,6 +3,10 @@ node_modules/
 dist/
 .wrangler/
 
+# local secrets (Google Maps API key)
+.env
+.env.local
+
 # source participant PDFs (ASTC-published; regenerate data/ locally, don't redistribute)
 assets/*.pdf
 
